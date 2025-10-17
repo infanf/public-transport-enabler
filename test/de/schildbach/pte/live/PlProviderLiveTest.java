@@ -36,7 +36,7 @@ import de.schildbach.pte.dto.SuggestLocationsResult;
  */
 public class PlProviderLiveTest extends AbstractProviderLiveTest {
     public PlProviderLiveTest() {
-        super(new PlProvider());
+        super(new PlProvider(secretProperty("pl.api_authorization")));
     }
 
     @Test

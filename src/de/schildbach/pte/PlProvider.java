@@ -29,20 +29,27 @@ import okhttp3.HttpUrl;
 /**
  * @author Andreas Schildbach
  */
-public class PlProvider extends AbstractHafasLegacyProvider {
-    private static final HttpUrl API_BASE = HttpUrl.parse("http://mobil.rozklad-pkp.pl/bin/");
+public class PlProvider extends AbstractHafasClientInterfaceProvider {
+    private static final HttpUrl API_BASE = HttpUrl.parse("https://mobil.rozklad-pkp.pl:8019/bin/");
     private static final Product[] PRODUCTS_MAP = { Product.HIGH_SPEED_TRAIN, // High speed trains from other
                                                                               // countries
             Product.HIGH_SPEED_TRAIN, // EIP, EIC, EC and international equivalents
             Product.HIGH_SPEED_TRAIN, // IC, TLK, IR and international equivalents
             Product.REGIONAL_TRAIN, // R (Regio), Os (Osobowy) and other regional and suburban trains
             Product.BUS, Product.BUS, Product.FERRY };
+    private static final String DEFAULT_API_CLIENT = "{\"id\":\"HAFAS\",\"type\":\"AND\"}";
 
-    public PlProvider() {
-        super(NetworkId.PL, API_BASE, "pn", PRODUCTS_MAP);
-        setRequestUrlEncoding(Charsets.UTF_8);
-        setJsonNearbyLocationsEncoding(Charsets.UTF_8);
+    public PlProvider(final String apiAuthorization) {
+        this(DEFAULT_API_CLIENT, apiAuthorization);
+    }
+
+    public PlProvider(final String apiClient, final String apiAuthorization) {
+        super(NetworkId.PL, API_BASE, PRODUCTS_MAP);
+        setApiVersion("1.21");
+        setApiClient(apiClient);
+        setApiAuthorization(apiAuthorization);
         setSessionCookieName("SERVERID");
+        setUserAgent("Dalvik/2.1.0 (Linux; U; Android 15)");
     }
 
     private static final String[] PLACES = { "Warszawa", "Kraków" };
@@ -60,48 +67,7 @@ public class PlProvider extends AbstractHafasLegacyProvider {
     }
 
     @Override
-    protected void addCustomReplaces(final StringReplaceReader reader) {
-        reader.replace("dir=\"Sp ", " "); // Poland
-        reader.replace("dir=\"B ", " "); // Poland
-        reader.replace("dir=\"K ", " "); // Poland
-        reader.replace("dir=\"Eutingen i. G ", "dir=\"Eutingen\" "); // Poland
-        reader.replace("StargetLoc", "Süd\" targetLoc"); // Poland
-        reader.replace("platform=\"K ", " "); // Poland
-    }
-
-    @Override
     public Set<Product> defaultProducts() {
         return Product.ALL;
-    }
-
-    @Override
-    protected Product normalizeType(final String type) {
-        final String ucType = type.toUpperCase();
-
-        if ("AR".equals(ucType)) // Arriva Polaczen
-            return Product.REGIONAL_TRAIN;
-        if ("N".equals(ucType))
-            return Product.REGIONAL_TRAIN;
-        if ("REG".equals(ucType))
-            return Product.REGIONAL_TRAIN;
-        if ("L".equals(ucType) || "LS".equals(ucType)) // Łódzka Kolej Aglomeracyjna
-            return Product.REGIONAL_TRAIN;
-
-        if ("SKM".equals(ucType)) // SKM Trojmiasto in Gdansk Metropolitan Area
-            return Product.SUBURBAN_TRAIN;
-        if ("SKW".equals(ucType)) // SKM Warszawa
-            return Product.SUBURBAN_TRAIN;
-        if ("WKD".equals(ucType)) // Warsaw Commuter Railway (Warszawa Kolej Dojazdowa)
-            return Product.SUBURBAN_TRAIN;
-
-        if ("IRB".equals(ucType)) // interREGIO Bus
-            return Product.BUS;
-        if ("ZKA".equals(ucType)) // Zastępcza Komunikacja Autobusowa (Schienenersatzverkehr)
-            return Product.BUS;
-
-        if ("FRE".equals(ucType))
-            return Product.FERRY;
-
-        return super.normalizeType(type);
     }
 }

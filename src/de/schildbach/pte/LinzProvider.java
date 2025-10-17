@@ -20,6 +20,7 @@ package de.schildbach.pte;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.google.common.base.Charsets;
 import de.schildbach.pte.dto.Style;
 
 import okhttp3.HttpUrl;
@@ -28,12 +29,12 @@ import okhttp3.HttpUrl;
  * @author Andreas Schildbach
  */
 public class LinzProvider extends AbstractEfaProvider {
-    private static final HttpUrl API_BASE = HttpUrl.parse("https://www.linzag.at/linz2/");
+    private static final HttpUrl API_BASE = HttpUrl.parse("https://www.linzag.at/static/");
     // http://www.linzag.at/static/
 
     public LinzProvider() {
         super(NetworkId.LINZ, API_BASE);
-
+        setRequestUrlEncoding(Charsets.UTF_8);
         setUseRouteIndexAsTripId(false);
         setStyles(STYLES);
     }

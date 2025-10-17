@@ -17,6 +17,7 @@
 
 package de.schildbach.pte;
 
+import java.util.Set;
 import java.util.regex.Matcher;
 
 import de.schildbach.pte.dto.Product;
@@ -29,7 +30,7 @@ import okhttp3.HttpUrl;
  * @author Andreas Schildbach
  */
 public class LuProvider extends AbstractHafasClientInterfaceProvider {
-    private static final HttpUrl API_BASE = HttpUrl.parse("https://travelplanner.mobiliteit.lu/hafas/");
+    private static final HttpUrl API_BASE = HttpUrl.parse("https://cdt.hafas.de/");
     private static final Product[] PRODUCTS_MAP = { Product.HIGH_SPEED_TRAIN, Product.HIGH_SPEED_TRAIN,
             Product.HIGH_SPEED_TRAIN, Product.REGIONAL_TRAIN, Product.REGIONAL_TRAIN, Product.BUS, Product.BUS,
             Product.BUS, Product.BUS, Product.BUS };
@@ -37,6 +38,7 @@ public class LuProvider extends AbstractHafasClientInterfaceProvider {
 
     public LuProvider(final String apiAuthorization) {
         this(DEFAULT_API_CLIENT, apiAuthorization);
+        setApiEndpoint("gate");
     }
 
     public LuProvider(final String apiClient, final String apiAuthorization) {
@@ -44,6 +46,11 @@ public class LuProvider extends AbstractHafasClientInterfaceProvider {
         setApiVersion("1.18");
         setApiClient(apiClient);
         setApiAuthorization(apiAuthorization);
+    }
+
+    @Override
+    public Set<Product> defaultProducts() {
+        return Product.ALL;
     }
 
     @Override

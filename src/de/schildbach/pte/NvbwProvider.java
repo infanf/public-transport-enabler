@@ -35,9 +35,7 @@ import okhttp3.HttpUrl;
  * @author Andreas Schildbach
  */
 public class NvbwProvider extends AbstractEfaProvider {
-    private final static HttpUrl API_BASE = HttpUrl.parse("https://www.efa-bw.de/nvbw3L/");
-    // https://efaserver.vag-freiburg.de/vagfr/
-    // http://efa2.naldo.de/naldo/
+    private final static HttpUrl API_BASE = HttpUrl.parse("https://www.efa-bw.de/nvbw/");
 
     public NvbwProvider() {
         super(NetworkId.NVBW, API_BASE);
@@ -47,6 +45,8 @@ public class NvbwProvider extends AbstractEfaProvider {
     }
 
     private static final Pattern P_LINE_S_AVG_VBK = Pattern.compile("(S\\d+) \\((?:AVG|VBK)\\)");
+    private static final Pattern P_INTERCITY = Pattern.compile("IC\\d*");
+    private static final Pattern P_INTERREGIO = Pattern.compile("IR\\d*");
 
     @Override
     protected Line parseLine(final @Nullable String id, final @Nullable String network, final @Nullable String mot,
@@ -57,8 +57,7 @@ public class NvbwProvider extends AbstractEfaProvider {
                 return new Line(id, network, Product.HIGH_SPEED_TRAIN, "ICE");
             if ("InterCity".equals(trainName) && trainNum == null)
                 return new Line(id, network, Product.HIGH_SPEED_TRAIN, "IC");
-            if (("IC3".equals(trainNum) || "IC4".equals(trainNum) || "IC5".equals(trainNum) || "IC8".equals(trainNum))
-                    && trainType == null)
+            if (trainType == null && trainNum != null && P_INTERCITY.matcher(trainNum).matches())
                 return new Line(id, network, Product.HIGH_SPEED_TRAIN, trainNum);
             if ("Fernreisezug externer EU".equals(trainName) && trainNum == null)
                 return new Line(id, network, Product.HIGH_SPEED_TRAIN, null);
@@ -66,6 +65,8 @@ public class NvbwProvider extends AbstractEfaProvider {
                 return new Line(id, network, Product.HIGH_SPEED_TRAIN, "SC");
             if ("InterRegio".equals(longName) && symbol == null)
                 return new Line(id, network, Product.REGIONAL_TRAIN, "IR");
+            if (trainType == null && trainNum != null && P_INTERREGIO.matcher(trainNum).matches())
+                return new Line(id, network, Product.REGIONAL_TRAIN, trainNum);
             if ("REGIOBAHN".equals(trainName) && trainNum == null)
                 return new Line(id, network, Product.REGIONAL_TRAIN, null);
             if ("Meridian".equals(trainName) && symbol != null)

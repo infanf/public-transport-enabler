@@ -19,10 +19,12 @@ package de.schildbach.pte.util;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.io.ByteArrayInputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.Proxy;
+import java.security.KeyStore;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
@@ -34,6 +36,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
@@ -81,6 +85,8 @@ public final class HttpClient {
     private Proxy proxy = null;
     private boolean trustAllCertificates = false;
     @Nullable
+    private byte[] clientCertificate = null;
+    @Nullable
     private CertificatePinner certificatePinner = null;
 
     private static final List<Integer> RESPONSE_CODES_BLOCKED = Ints.asList(HttpURLConnection.HTTP_BAD_REQUEST,
@@ -88,7 +94,7 @@ public final class HttpClient {
             HttpURLConnection.HTTP_NOT_ACCEPTABLE, HttpURLConnection.HTTP_UNAVAILABLE);
     private static final List<Integer> RESPONSE_CODES_NOT_FOUND = Ints.asList(HttpURLConnection.HTTP_NOT_FOUND);
     private static final List<Integer> RESPONSE_CODES_REDIRECT = Ints.asList(HttpURLConnection.HTTP_MOVED_PERM,
-            HttpURLConnection.HTTP_MOVED_TEMP);
+            HttpURLConnection.HTTP_MOVED_TEMP, 307, 308);
     private static final List<Integer> RESPONSE_CODES_INTERNAL_ERROR = Ints
             .asList(HttpURLConnection.HTTP_INTERNAL_ERROR, HttpURLConnection.HTTP_BAD_GATEWAY);
 
@@ -170,6 +176,10 @@ public final class HttpClient {
 
     private static final Logger log = LoggerFactory.getLogger(HttpClient.class);
 
+    public HttpClient() {
+        setHeader("Accept", SCRAPE_ACCEPT);
+    }
+
     public void setUserAgent(final String userAgent) {
         this.userAgent = userAgent;
     }
@@ -188,6 +198,10 @@ public final class HttpClient {
 
     public void setTrustAllCertificates(final boolean trustAllCertificates) {
         this.trustAllCertificates = trustAllCertificates;
+    }
+
+    public void setClientCertificate(final byte[] clientCertificate) {
+        this.clientCertificate = clientCertificate;
     }
 
     public void setCertificatePin(final String host, final String... hashes) {
@@ -226,9 +240,10 @@ public final class HttpClient {
         final Request.Builder request = new Request.Builder();
         request.url(url);
         request.headers(Headers.of(headers));
-        if (postRequest != null)
-            request.post(RequestBody.create(MediaType.parse(requestContentType), postRequest));
-        request.header("Accept", SCRAPE_ACCEPT);
+        if (postRequest != null) {
+            final MediaType m = requestContentType != null ? MediaType.parse(requestContentType) : null;
+            request.post(RequestBody.create(m, postRequest));
+        }
         if (userAgent != null)
             request.header("User-Agent", userAgent);
         if (referer != null)
@@ -238,12 +253,12 @@ public final class HttpClient {
             request.header("Cookie", sessionCookie.toString());
 
         final OkHttpClient okHttpClient;
-        if (proxy != null || trustAllCertificates || certificatePinner != null) {
+        if (proxy != null || trustAllCertificates || certificatePinner != null || clientCertificate != null) {
             final OkHttpClient.Builder builder = OKHTTP_CLIENT.newBuilder();
             if (proxy != null)
                 builder.proxy(proxy);
-            if (trustAllCertificates)
-                trustAllCertificates(builder);
+            if (trustAllCertificates || clientCertificate != null)
+                configureSSL(builder);
             if (certificatePinner != null)
                 builder.certificatePinner(certificatePinner);
             okHttpClient = builder.build();
@@ -340,10 +355,19 @@ public final class HttpClient {
         return false;
     }
 
-    private void trustAllCertificates(final OkHttpClient.Builder okHttpClientBuilder) {
+    private void configureSSL(final OkHttpClient.Builder okHttpClientBuilder) {
         try {
             final SSLContext sslContext = SSLContext.getInstance("SSL");
-            sslContext.init(null, new TrustManager[] { TRUST_ALL_CERTIFICATES }, null);
+            KeyManager[] keyManagers = null;
+            if (clientCertificate != null) {
+                final char[] keyStorePassword = "".toCharArray();
+                KeyStore keyStore = KeyStore.getInstance("PKCS12");
+                keyStore.load(new ByteArrayInputStream(clientCertificate), keyStorePassword);
+                KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+                keyManagerFactory.init(keyStore, keyStorePassword);
+                keyManagers = keyManagerFactory.getKeyManagers();
+            }
+            sslContext.init(keyManagers, new TrustManager[] { TRUST_ALL_CERTIFICATES }, null);
             final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
             okHttpClientBuilder.sslSocketFactory(sslSocketFactory, TRUST_ALL_CERTIFICATES);
         } catch (final Exception x) {
